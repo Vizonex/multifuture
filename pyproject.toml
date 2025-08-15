@@ -1,0 +1,13 @@
+[project]
+name = "multifuture"
+version = "0.1.0"
+authors = [
+    { name = "Vizonex", email = "VizonexBusiness@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[build-system]
+requires = ["setuptools", "cython==3.1.3"]
+
+
