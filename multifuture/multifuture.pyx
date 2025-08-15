@@ -471,7 +471,6 @@ cdef class MultiFuture:
         FutureObj_AddDoneCallback(fut, self.__on_fut, NULL)
         return fut
 
-
     cpdef int add_future(self, object fut) except -1:
         """Adds a preexisting future to the MultiFuture, Raises TypeError if 
         future does not inherit from `_asyncio.Future` don't let the `asyncio.Future` 

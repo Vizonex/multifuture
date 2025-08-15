@@ -2,24 +2,27 @@ import anyio as anyio
 import pytest
 import sys
 import asyncio
-from multifuture import MultiFuture, InvalidStateError, CancelledError
+from multifuture import MultiFuture
 
 uvloop = pytest.importorskip("winloop" if sys.platform == "win32" else "uvloop")
 
 PARAMS = [
-        pytest.param(
-            ("asyncio", {"loop_factory": uvloop.new_event_loop}), id="asyncio[uvloop]"
-        ),
+    pytest.param(
+        ("asyncio", {"loop_factory": uvloop.new_event_loop}), id="asyncio[uvloop]"
+    ),
     pytest.param(("asyncio", {"use_uvloop": False}), id="asyncio"),
 ]
 
 if sys.platform == "win32":
     PARAMS.append(
-        pytest.param(("asyncio", {"loop_factory": asyncio.SelectorEventLoop}), id="asyncio[win32+selector]")
+        pytest.param(
+            ("asyncio", {"loop_factory": asyncio.SelectorEventLoop}),
+            id="asyncio[win32+selector]",
+        )
     )
-@pytest.fixture(
-    params=PARAMS
-)
+
+
+@pytest.fixture(params=PARAMS)
 def anyio_backend(request: pytest.FixtureRequest):
     return request.param
 
@@ -49,6 +52,7 @@ async def test_child_kills_parent_off():
     await asyncio.sleep(0)
     assert fut.cancelled()
 
+
 @pytest.mark.anyio
 async def test_child_kills_children():
     fut = MultiFuture()
@@ -56,22 +60,22 @@ async def test_child_kills_children():
     children[0].cancel()
     # takes a few cycles to cleanup children
     await asyncio.sleep(0.002)
-    
+
     for child in children:
         assert child.cancelled()
     # child should kill parent as well...
     assert fut.cancelled()
+
 
 @pytest.mark.anyio
 async def test_everyone_gets_same_result():
     fut: MultiFuture[str] = MultiFuture()
     children = [fut.create_future() for _ in range(3)]
     fut.set_result("Vizonex")
-   
+
     for child in children:
         assert (await child) == "Vizonex"
     assert fut.result() == "Vizonex"
-
 
 
 @pytest.mark.anyio
@@ -93,14 +97,8 @@ async def test_edjected_child_from_children_remains_different():
     children[-1].set_result(0)
     await asyncio.sleep(0)
     fut.set_result("Vizonex")
-   
 
     for child in children[:-1]:
         assert (await child) == "Vizonex"
     assert fut.result() == "Vizonex"
     assert (await children[-1]) == 0
-
-
-
-
-

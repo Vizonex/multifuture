@@ -6,5 +6,12 @@ CASYNCIO_PATH = Path(__file__) / "multifuture"
 
 if __name__ == "__main__":
     setup(
-        ext_modules=cythonize(Extension("multifuture.multifuture", ["multifuture/multifuture.pyx"], include_dirs=[str(CASYNCIO_PATH)]), cache=True)
+        ext_modules=cythonize(
+            Extension(
+                "multifuture.multifuture",
+                ["multifuture/multifuture.pyx"],
+                include_dirs=[str(CASYNCIO_PATH)],
+            ),
+            cache=True,
+        )
     )
