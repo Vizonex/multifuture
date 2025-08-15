@@ -209,4 +209,4 @@ __marimo__/
 
 # Cython Compiled C Source
 multifuture/multifuture.c
-
+.vscode
