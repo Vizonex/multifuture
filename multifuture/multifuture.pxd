@@ -22,7 +22,7 @@ cdef class MultiFuture:
         set _futures
         uint8_t _state
 
-    cdef int __handle_exception(MultiFuture self)
+    cdef int __handle_exception(self)
     cdef int _invoke_callbacks(self, bint exception_raised) except -1
 
     cpdef bint cancelled(self)
@@ -30,8 +30,8 @@ cdef class MultiFuture:
     cpdef bint cancel(self) except -1
 
     cdef object __get_result(self)
-    cpdef object set_result(self, object result)
-    cpdef object set_exception(self, object exception)
+    cpdef int set_result(self, object result) except -1
+    cpdef int set_exception(self, object exception) except -1
     cdef int wait_timeout(self, PyTime_t timeout) except -1
     
     cdef int wait_forever(self) except -1

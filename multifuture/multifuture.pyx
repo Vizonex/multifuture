@@ -11,7 +11,7 @@ from cpython.set cimport PySet_Add, PySet_Discard, PySet_Clear, PySet_Contains
 
 # NOTE: Needed for determining if user compiled _asynciomodule.c or not (That is the only requirement with this library)
 from asyncio.futures import _PyFuture
-from asyncio import get_event_loop as _get_event_loop
+from asyncio import get_event_loop as _get_event_loop, AbstractEventLoop
 
 from .casyncio cimport *
 import_casyncio()
@@ -63,7 +63,7 @@ typedef _PyTime_round_t PyTime_round_t;
 
     """
 
-    PyObject *PyObject_CallOneArg(object callable, object arg)
+    PyObject* PyObject_CallOneArg(object callable, object arg)
     PyObject *PyObject_CallNoArgs(object callable) except NULL
     PyObject *PyObject_CallMethodNoArgs(object obj, object name) except NULL
     void Py_INCREF(PyObject*)
@@ -160,45 +160,55 @@ cdef enum INVOKE_REASON:
 # NOTE: We have to pull different loops from different threads as that is the goal of MultiFuture 
 # which is to share accross multiple threads and sometimes many different eventloops.
 
-cpdef object __on_set_result(tuple t):
-    cdef Future fut = t[0]
-    cdef object result = t[1]
-    if FutureObj_SetResult(fut, result) < 0:
-        raise
-
-cdef inline int __schedule_result_threadsafe(Future fut, object result) except -1:
-    if FutureObj_EnsureAlive(fut) < 0:
-        return -1
-    if Loop_CallSoonThreadSafe(FutureObj_GetLoop(fut), __on_set_result, (fut, result), NULL) < 0:
-        return -1
-    return 0
-
-cpdef object __on_set_exception(tuple t):
-    if FutureObj_SetException(t[0], t[1]) < 0:
-        raise
-
-cdef inline int __schedule_exception_threadsafe(Future fut, object exc) except -1:
-    if FutureObj_EnsureAlive(fut) < 0:
-        return -1
-
-    if Loop_CallSoonThreadSafe(FutureObj_GetLoop(fut), __on_set_exception, (fut, exc), NULL) < 0:
-        return -1
-    return 0
-
-cpdef object __on_cancel_future(Future fut):
-    # we only want to attempt to cacnel, 0 or 1 are acceptable however -1 isn't
-    if FutureObj_Cancel(fut) < 0:
-        raise
-
-cdef inline int __schedule_cancellation_threadsafe(Future fut) except -1:
-    if FutureObj_EnsureAlive(fut) < 0:
-        return -1
-
-    if Loop_CallSoonThreadSafe(FutureObj_GetLoop(fut), __on_cancel_future, fut, NULL) < 0:
-        return -1
-    return 0
 
 
+# XXX: there's a performance loss of 2x if we were to take anything else into account
+# to prevent this we can use a callable handle instead to compete with asyncio.wrap_future
+
+cdef class _ChainedFuture:
+    cdef Future fut
+    cdef MultiFuture mf
+    @staticmethod
+    cdef inline _ChainedFuture __cnew__(Future fut, MultiFuture mf):
+        cdef _ChainedFuture cf = _ChainedFuture.__new__(_ChainedFuture)
+        cf.fut = fut
+        cf.mf = mf
+        return cf
+    
+    def __hash__(self) -> int:
+        return hash(self.fut)
+    
+    cdef inline int handle_multi(self, MultiFuture fut) except -1:
+        cdef int status
+        cdef object result
+        assert fut.done()
+        if fut.cancelled():
+            FutureObj_GetLoop(self.fut).call_soon_threadsafe(self.fut.cancel)
+            return 0
+        else:
+            if result := fut.exception():
+                return Loop_CallSoonThreadSafe(FutureObj_GetLoop(self.fut), self.fut.set_exception, result, NULL)
+            # should be instant
+            result = fut.result(0)
+            return Loop_CallSoonThreadSafe(FutureObj_GetLoop(self.fut), self.fut.set_result, result, NULL)
+
+    cdef object handle_fut(self):
+        cdef PyObject* result
+        cdef int status
+        if FutureObj_IsCancelled(self.fut):
+            return self.mf.cancel()
+        # Do not do anything except edject from use
+        else:
+            self.mf.remove_done_callback(self)
+            self.fut.remove_done_callback(self)
+        return 0
+
+
+    def __call__(self, object fut):
+        if isinstance(fut, MultiFuture):
+            self.handle_multi(fut)
+            return None
+        self.handle_fut()
 
 
 
@@ -213,11 +223,10 @@ cdef class MultiFuture:
         self._result = None
         self._exception = None
         self._callbacks = []
-        self._futures = set()
         self._exc_handler = exception_handler
         self._has_exc_handler = exception_handler is not None
 
-    cdef int __handle_exception(MultiFuture self):
+    cdef int __handle_exception(self):
         cdef PyObject* exc = PyErr_Occurred()
         if exc == NULL: return -1
 
@@ -229,36 +238,26 @@ cdef class MultiFuture:
 
         elif PyObject_CallOneArg(self._exc_handler, <object>exc) == NULL:
             return -1
-        
         return 0
 
     cdef int _invoke_callbacks(self, bint exception_raised) except -1:
         cdef list callbacks
         cdef set futures
         cdef object fn
-        cdef Future fut
         if self._callbacks:
             # Currently we have to copy off the list 
             # hopefully in the future we can implement NULL Values instead.
-            callbacks = PyList_Copy(self._callbacks)
-            PyList_Clear(self._callbacks)
-            for fn in self._callbacks:
+            callbacks = self._callbacks.copy()
+            self._callbacks.clear()
+            for fn in callbacks:             
                 if PyObject_CallOneArg(fn, self) == NULL:
                     if self.__handle_exception() < 0:
                         del callbacks
                         return -1
             del callbacks
+        return 0
 
-        if self._futures:
-            futures = self._futures.copy()
-            PySet_Clear(self._futures)
-            for fut in futures:
-                if not exception_raised:
-                    if __schedule_result_threadsafe(fut, self._result) < 0:
-                        return -1
-                elif __schedule_exception_threadsafe(fut, self._result) < 0:
-                    return -1
-            del futures
+  
 
     cpdef bint cancelled(self):
         return atomic_load_uint8(&self._state) == CANCELLED
@@ -277,10 +276,6 @@ cdef class MultiFuture:
         else:
             self._exception = CancelledError(f"{self!r} was cancelled")
             atomic_exhange_uint8(&self._state , CANCELLED)
-            # All futures waiting for cancellation signal need to run now.
-            for fut in self._futures:
-                if __schedule_cancellation_threadsafe(fut) < 0:
-                    return -1
             
             # All Callbacks waiting for cancellation need to be signaled
             for cb in self._callbacks:
@@ -295,22 +290,24 @@ cdef class MultiFuture:
             return self._result
     
 
-    cpdef object set_result(self, object result):
+    cpdef int set_result(self, object result) except -1:
         cdef uint8_t state = atomic_load_uint8(&self._state)
         if state != RUNNING:
-            raise InvalidStateError(f"{state}: {self!r}")
+            PyErr_SetObject(InvalidStateError, f"{state}: {self!r}")
+            return -1
         self._result = result
         atomic_exhange_uint8(&self._state, FINISHED)
         self._invoke_callbacks(False)
     
-    cpdef object set_exception(self, object exception):
+    cpdef int set_exception(self, object exception) except -1:
         cdef uint8_t state = atomic_load_uint8(&self._state)
         if state != RUNNING:
-            raise InvalidStateError(f"{state}: {self!r}")
+            PyErr_SetObject(InvalidStateError, f"{state}: {self!r}")
+            return -1
         self._exception = exception
         atomic_exhange_uint8(&self._state, FINISHED)
         self._invoke_callbacks(True)
-    
+
     # Public Cython-API
     cdef int wait_timeout(self, PyTime_t timeout) except -1:
         # Waits until object is finished, 
@@ -441,20 +438,7 @@ cdef class MultiFuture:
             self._callbacks[:] = filtered_callbacks
         return removed
 
-    # Not Public do not use
-    def __on_fut(self, Future fut):
-        # if Future is cancelled then we need to cancel the others out of being utilized
-        if FutureObj_IsDone(fut):
-            # Edject from being utilized since user wanted to back off
-            PySet_Discard(self._futures, fut)
-        if FutureObj_IsCancelled(fut):
-            # Call all of them
-            self.cancel()
-            PySet_Discard(self._futures, fut)
-        
-
-
-
+    
     cpdef Future create_future(self):
         """Creates a new asyncio.Future via calling the running 
         thread's eventloop, if none are running this will raise 
@@ -463,12 +447,13 @@ cdef class MultiFuture:
         # This should throw an error if the user doesn't have a running 
         # eventloop in the thread it's running in.
         cdef Future fut 
+        cdef _ChainedFuture handle
         if self.done():
             raise InvalidStateError("MultiFuture is already finished")
         fut = Future()
-        if PySet_Add(self._futures, fut) < 0:
-            raise
-        FutureObj_AddDoneCallback(fut, self.__on_fut, NULL)
+        handle = _ChainedFuture.__cnew__(fut, self)
+        self.add_done_callback(handle)
+        FutureObj_AddDoneCallback(fut, handle, NULL)
         return fut
 
     cpdef int add_future(self, object fut) except -1:
@@ -482,8 +467,17 @@ cdef class MultiFuture:
             else:
                 PyErr_SetObject(TypeError, f"Future Objects Must be inherited from _asyncio.Future not {self!r}")
             return -1
-        FutureObj_AddDoneCallback(fut, self.__on_fut, NULL)
+        handle = _ChainedFuture.__cnew__(fut, self)
+        self.add_done_callback(handle)
+        FutureObj_AddDoneCallback(fut, handle , NULL)
         return 0
+
+    # Decided to add this in even though I was originally against this idea sicne 
+    # the Cyares library should return asyncio.Future since handling a MultiFuture directly 
+    # may be considered unsafe
+    def __await__(self):
+        return self.create_future().__await__()
+
 
 
  
