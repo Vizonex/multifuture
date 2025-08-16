@@ -60,18 +60,171 @@ typedef enum {
 
 #if (PY_VERSION_HEX >= 0x030a00f0)
 #define CASYNCIO_PYTHON_310
+/* 3.10 */
+#define FutureObj_HEAD(prefix)                                              \
+    PyObject_HEAD                                                           \
+    PyObject *prefix##_loop;                                                \
+    PyObject *prefix##_callback0;                                           \
+    PyObject *prefix##_context0;                                            \
+    PyObject *prefix##_callbacks;                                           \
+    PyObject *prefix##_exception;                                           \
+    PyObject *prefix##_exception_tb;                                        \
+    PyObject *prefix##_result;                                              \
+    PyObject *prefix##_source_tb;                                           \
+    PyObject *prefix##_cancel_msg;                                          \
+    fut_state prefix##_state;                                               \
+    int prefix##_log_tb;                                                    \
+    int prefix##_blocking;                                                  \
+    PyObject *dict;                                                         \
+    PyObject *prefix##_weakreflist;                                         \
+    _PyErr_StackItem prefix##_cancelled_exc_state;
+typedef struct {
+    FutureObj_HEAD(fut)
+} FutureObj;
+
+#else 
+/* 3.9 */
+#define FutureObj_HEAD(prefix)                                              \
+    PyObject_HEAD                                                           \
+    PyObject *prefix##_loop;                                                \
+    PyObject *prefix##_callback0;                                           \
+    PyObject *prefix##_context0;                                            \
+    PyObject *prefix##_callbacks;                                           \
+    PyObject *prefix##_exception;                                           \
+    PyObject *prefix##_result;                                              \
+    PyObject *prefix##_source_tb;                                           \
+    PyObject *prefix##_cancel_msg;                                          \
+    fut_state prefix##_state;                                               \
+    int prefix##_log_tb;                                                    \
+    int prefix##_blocking;                                                  \
+    PyObject *dict;                                                         \
+    PyObject *prefix##_weakreflist;                                         \
+    _PyErr_StackItem prefix##_cancelled_exc_state;
+typedef struct {
+    FutureObj_HEAD(fut)
+} FutureObj;
+
 #endif
+
 #if (PY_VERSION_HEX >= 0x030b00f0)
 #define CASYNCIO_PYTHON_311
+/* Remove Macro if previously defined */
+#ifdef FutureObj_HEAD
+    #undef FutureObj_HEAD
+#endif 
+
+#define FutureObj_HEAD(prefix)                                              \
+    PyObject_HEAD                                                           \
+    PyObject *prefix##_loop;                                                \
+    PyObject *prefix##_callback0;                                           \
+    PyObject *prefix##_context0;                                            \
+    PyObject *prefix##_callbacks;                                           \
+    PyObject *prefix##_exception;                                           \
+    PyObject *prefix##_exception_tb;                                        \
+    PyObject *prefix##_result;                                              \
+    PyObject *prefix##_source_tb;                                           \
+    PyObject *prefix##_cancel_msg;                                          \
+    fut_state prefix##_state;                                               \
+    int prefix##_log_tb;                                                    \
+    int prefix##_blocking;                                                  \
+    PyObject *dict;                                                         \
+    PyObject *prefix##_weakreflist;                                         \
+    PyObject *prefix##_cancelled_exc;
+
+typedef struct {
+    FutureObj_HEAD(fut)
+} FutureObj;
 #endif
 #if (PY_VERSION_HEX >= 0x030c00f0)
 #define CASYNCIO_PYTHON_312
+/* Remove Macro if previously defined */
+ 
+
+#define FutureObj_HEAD(prefix)                                              \
+    PyObject_HEAD                                                           \
+    PyObject *prefix##_loop;                                                \
+    PyObject *prefix##_callback0;                                           \
+    PyObject *prefix##_context0;                                            \
+    PyObject *prefix##_callbacks;                                           \
+    PyObject *prefix##_exception;                                           \
+    PyObject *prefix##_exception_tb;                                        \
+    PyObject *prefix##_result;                                              \
+    PyObject *prefix##_source_tb;                                           \
+    PyObject *prefix##_cancel_msg;                                          \
+    fut_state prefix##_state;                                               \
+    int prefix##_log_tb;                                                    \
+    int prefix##_blocking;                                                  \
+    PyObject *dict;                                                         \
+    PyObject *prefix##_weakreflist;                                         \
+    PyObject *prefix##_cancelled_exc;
+
+typedef struct {
+    FutureObj_HEAD(fut)
+} FutureObj;
+
 #endif
 #if (PY_VERSION_HEX >= 0x030d00f0)
 #define CASYNCIO_PYTHON_313
+/* Remove Macro if previously defined */
+// #ifdef FutureObj_HEAD
+//     #undef FutureObj_HEAD
+// #endif 
+
+#define FutureObj_HEAD(prefix)                                              \
+    PyObject_HEAD                                                           \
+    PyObject *prefix##_loop;                                                \
+    PyObject *prefix##_callback0;                                           \
+    PyObject *prefix##_context0;                                            \
+    PyObject *prefix##_callbacks;                                           \
+    PyObject *prefix##_exception;                                           \
+    PyObject *prefix##_exception_tb;                                        \
+    PyObject *prefix##_result;                                              \
+    PyObject *prefix##_source_tb;                                           \
+    PyObject *prefix##_cancel_msg;                                          \
+    PyObject *prefix##_cancelled_exc;                                       \
+    fut_state prefix##_state;                                               \
+    /* These bitfields need to be at the end of the struct
+       so that these and bitfields from TaskObj are contiguous.
+    */                                                                      \
+    unsigned prefix##_log_tb: 1;                                            \
+    unsigned prefix##_blocking: 1;
+
+typedef struct {
+    FutureObj_HEAD(fut)
+} FutureObj;
+
 #endif
 #if (PY_VERSION_HEX >= 0x030e00f0)
 #define CASYNCIO_PYTHON_314
+/* Remove Macro if previously defined */
+
+#define FutureObj_HEAD(prefix)                                              \
+    PyObject_HEAD                                                           \
+    PyObject *prefix##_loop;                                                \
+    PyObject *prefix##_callback0;                                           \
+    PyObject *prefix##_context0;                                            \
+    PyObject *prefix##_callbacks;                                           \
+    PyObject *prefix##_exception;                                           \
+    PyObject *prefix##_exception_tb;                                        \
+    PyObject *prefix##_result;                                              \
+    PyObject *prefix##_source_tb;                                           \
+    PyObject *prefix##_cancel_msg;                                          \
+    PyObject *prefix##_cancelled_exc;                                       \
+    PyObject *prefix##_awaited_by;                                          \
+    fut_state prefix##_state;                                               \
+    /* Used by profilers to make traversing the stack from an external      \
+       process faster. */                                                   \
+    char prefix##_is_task;                                                  \
+    char prefix##_awaited_by_is_set;                                        \
+    /* These bitfields need to be at the end of the struct                  \
+       so that these and bitfields from TaskObj are contiguous.             \
+    */                                                                      \
+    unsigned prefix##_log_tb: 1;                                            \
+    unsigned prefix##_blocking: 1;                                          \
+    
+typedef struct {
+    FutureObj_HEAD(fut)
+} FutureObj;
 #endif
 
 #ifndef CASYNCIO_PYTHON_311
@@ -284,124 +437,76 @@ _PyErr_ChainStackItem(_PyErr_StackItem *exc_info)
 /* XXX Can't use macros on FutureObj_HEAD Due to the way C Macros work but we can hardcode it in still */
 /* We can copy and paste this work into TaskObj */
 
-typedef struct
-{
-    PyObject_HEAD
-#ifndef CASYNCIO_PYTHON_313
-    PyObject *fut_loop;
-    PyObject *fut_callback0;
-    PyObject *fut_context0;
-    PyObject *fut_callbacks;
-    PyObject *fut_exception;
-#endif /* CASYNCIO_PYTHON_313 */
-#ifdef CASYNCIO_PYTHON_310
-    PyObject *fut_exception_tb;
-#endif
-    PyObject *fut_result;
-    PyObject *fut_source_tb;
-    PyObject *fut_cancel_msg;
-    fut_state fut_state;
-    int fut_log_tb;
-    int fut_blocking;
-    PyObject *dict;
-    PyObject *fut_weakreflist;
-#if CASYNCIO_PYTHON_311
-    PyObject *fut_cancelled_exc;
-#else
-    /* XXX: Altered after 3.10 retained newer name to be simplistic */
-    _PyErr_StackItem fut_cancelled_exc;
-#endif /* CASYNCIO_PYTHON_311 */
 
-#ifdef CASYNCIO_PYTHON_313
-    /* 313 Takes a Massive leap that is too impressive to organize */
-    PyObject *fut_loop;
-    PyObject *fut_callback0;
-    PyObject *fut_context0;
-    PyObject *fut_callbacks;
-    PyObject *fut_exception;
-    PyObject *fut_exception_tb;
-    PyObject *fut_result;
-    PyObject *fut_source_tb;
-    PyObject *fut_cancel_msg;
-    PyObject *fut_cancelled_exc;
-    fut_state fut_state;
-    /* These bitfields need to be at the end of the struct
-       so that these and bitfields from TaskObj are contiguous.
-    */
-    unsigned fut_log_tb : 1;
-    unsigned fut_blocking : 1;
 
-#endif /* CASYNCIO_PYTHON_313 */
-} FutureObj;
+// typedef struct {
+// #ifndef CASYNCIO_PYTHON_313
+//     PyObject *task_loop;
+//     PyObject *task_callback0;
+//     PyObject *task_context0;
+//     PyObject *task_callbacks;
+//     PyObject *task_exception;
+// #endif /* CASYNCIO_PYTHON_313 */
+// #ifdef CASYNCIO_PYTHON_310
+//     PyObject *task_exception_tb;
+// #endif /* CASYNCIO_PYTHON_310 */
+//     PyObject *task_result;
+//     PyObject *task_source_tb;
+//     PyObject *task_cancel_msg;
+//     fut_state task_state;
+//     int task_log_tb;
+//     int task_blocking;
+//     PyObject *dict;
+//     PyObject *task_weakreflist;
+// #if CASYNCIO_PYTHON_311
+//     PyObject *task_cancelled_exc;
+// #else
+//     /* XXX: Altered after 3.10 */
+//     _PyErr_StackItem task_cancelled_exc;
+// #endif /* CASYNCIO_PYTHON_311 */
 
-typedef struct {
-#ifndef CASYNCIO_PYTHON_313
-    PyObject *task_loop;
-    PyObject *task_callback0;
-    PyObject *task_context0;
-    PyObject *task_callbacks;
-    PyObject *task_exception;
-#endif /* CASYNCIO_PYTHON_313 */
-#ifdef CASYNCIO_PYTHON_310
-    PyObject *task_exception_tb;
-#endif /* CASYNCIO_PYTHON_310 */
-    PyObject *task_result;
-    PyObject *task_source_tb;
-    PyObject *task_cancel_msg;
-    fut_state task_state;
-    int task_log_tb;
-    int task_blocking;
-    PyObject *dict;
-    PyObject *task_weakreflist;
-#if CASYNCIO_PYTHON_311
-    PyObject *task_cancelled_exc;
-#else
-    /* XXX: Altered after 3.10 */
-    _PyErr_StackItem task_cancelled_exc;
-#endif /* CASYNCIO_PYTHON_311 */
+// #ifdef CASYNCIO_PYTHON_313
+//     /* 313 Takes a Massive leap that is too impressive to organize */
+//     PyObject *task_loop;
+//     PyObject *task_callback0;
+//     PyObject *task_context0;
+//     PyObject *task_callbacks;
+//     PyObject *task_exception;
+//     PyObject *task_exception_tb;
+//     PyObject *task_result;
+//     PyObject *task_source_tb;
+//     PyObject *task_cancel_msg;
+//     PyObject *task_cancelled_exc;
+//     fut_state task_state;
+//     /* These bitfields need to be at the end of the struct
+//        so that these and bitfields from TaskObj are contiguous.
+//     */
+//     unsigned task_log_tb : 1;
+//     unsigned task_blocking : 1;
 
-#ifdef CASYNCIO_PYTHON_313
-    /* 313 Takes a Massive leap that is too impressive to organize */
-    PyObject *task_loop;
-    PyObject *task_callback0;
-    PyObject *task_context0;
-    PyObject *task_callbacks;
-    PyObject *task_exception;
-    PyObject *task_exception_tb;
-    PyObject *task_result;
-    PyObject *task_source_tb;
-    PyObject *task_cancel_msg;
-    PyObject *task_cancelled_exc;
-    fut_state task_state;
-    /* These bitfields need to be at the end of the struct
-       so that these and bitfields from TaskObj are contiguous.
-    */
-    unsigned task_log_tb : 1;
-    unsigned task_blocking : 1;
-
-#endif /* CASYNCIO_PYTHON_313 */
-#ifndef CASYNCIO_PYTHON_313
-    PyObject *task_fut_waiter;
-    PyObject *task_coro;
-    PyObject *task_name;
-    PyObject *task_context;
-    int task_must_cancel;
-    int task_log_destroy_pending;
-#endif
-#if CASYNCIO_PYTHON_311
-    int task_num_cancels_requested;
-#endif
-#if CASYNCIO_PYTHON_313 
-    /* 3.13 still takes massive leaps and makes crazy changes */
-    unsigned task_must_cancel: 1;
-    unsigned task_log_destroy_pending: 1;
-    int task_num_cancels_requested;
-    PyObject *task_fut_waiter;
-    PyObject *task_coro;
-    PyObject *task_name;
-    PyObject *task_context;
-#endif 
-} TaskObj;
+// #endif /* CASYNCIO_PYTHON_313 */
+// #ifndef CASYNCIO_PYTHON_313
+//     PyObject *task_fut_waiter;
+//     PyObject *task_coro;
+//     PyObject *task_name;
+//     PyObject *task_context;
+//     int task_must_cancel;
+//     int task_log_destroy_pending;
+// #endif
+// #if CASYNCIO_PYTHON_311
+//     int task_num_cancels_requested;
+// #endif
+// #if CASYNCIO_PYTHON_313 
+//     /* 3.13 still takes massive leaps and makes crazy changes */
+//     unsigned task_must_cancel: 1;
+//     unsigned task_log_destroy_pending: 1;
+//     int task_num_cancels_requested;
+//     PyObject *task_fut_waiter;
+//     PyObject *task_coro;
+//     PyObject *task_name;
+//     PyObject *task_context;
+// #endif 
+// } TaskObj;
 
 
 
@@ -792,7 +897,10 @@ FutureObj_SetException(FutureObj *fut, PyObject *exc)
     }
 
     assert(!fut->fut_exception);
+    #ifdef CASYNCIO_PYTHON_310
+    /* 3.10 */  
     assert(!fut->fut_exception_tb);
+    #endif 
     fut->fut_exception = exc_val;
     fut->fut_exception_tb = PyException_GetTraceback(exc_val);
     fut->fut_state = STATE_FINISHED;
@@ -844,7 +952,7 @@ FutureObj_SetCancelledError(FutureObj* fut){
     PyErr_SetObject(asyncio_CancelledError, exc);
     /* were done using the exception object so release... */
     Py_DECREF(exc);
-    _PyErr_ChainStackItem(&fut->fut_cancelled_exc);
+    _PyErr_ChainStackItem(&fut->fut_cancelled_exc_state);
     #endif
 }
 

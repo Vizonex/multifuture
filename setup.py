@@ -2,8 +2,8 @@ from setuptools import Extension, setup
 from Cython.Build import cythonize
 from pathlib import Path
 
-CASYNCIO_PATH = Path(__file__) / "multifuture"
-
+CASYNCIO_PATH = Path(__file__).parent / "multifuture"
+print(CASYNCIO_PATH)
 if __name__ == "__main__":
     setup(
         ext_modules=cythonize(
